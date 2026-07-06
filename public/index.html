@@ -208,6 +208,25 @@
       .form-actions button:last-child {
         background: #6b7280;
       }
+
+      .photo-preview-wrap {
+        margin-top: 0.5rem;
+        display: grid;
+        gap: 0.4rem;
+      }
+
+      .photo-preview-wrap img {
+        width: 100%;
+        max-height: 220px;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+      }
+
+      .photo-name {
+        font-size: 0.9rem;
+        color: #4b5563;
+      }
     </style>
   </head>
   <body>
@@ -246,14 +265,18 @@
           </label>
           <label>
             Φωτογραφία
-            <input id="photo-input" name="photo" type="file" accept="image/*" capture="environment" required />
+            <input id="photo-input" name="photo" type="file" accept="image/*" capture="environment" />
+            <div id="photo-preview-wrap" class="photo-preview-wrap hidden">
+              <img id="photo-preview" alt="Προεπισκόπηση φωτογραφίας" />
+              <div id="photo-name" class="photo-name"></div>
+            </div>
           </label>
           <label>
             Σχόλιο / αρ. τιμολογίου
             <input id="entry-comment" name="comment" type="text" />
           </label>
           <div class="form-actions">
-            <button id="save-entry-btn" type="submit">Αποθήκευση εγγραφής</button>
+            <button id="save-entry-btn" type="button">Αποθήκευση εγγραφής</button>
             <button id="cancel-entry-btn" type="button" class="secondary-btn">Ακύρωση</button>
           </div>
         </form>
@@ -266,6 +289,8 @@
       let supabaseClient;
       let isInitializing = false;
       let currentCampaign = null;
+      let selectedPhotoFile = null;
+      let photoPreviewUrl = null;
       const authView = document.getElementById('auth-view');
       const dashboard = document.getElementById('dashboard');
       const loginForm = document.getElementById('login-form');
@@ -280,6 +305,9 @@
       const entryForm = document.getElementById('entry-form');
       const customerNameInput = document.getElementById('customer-name');
       const photoInput = document.getElementById('photo-input');
+      const photoPreviewWrap = document.getElementById('photo-preview-wrap');
+      const photoPreview = document.getElementById('photo-preview');
+      const photoNameEl = document.getElementById('photo-name');
       const entryCommentInput = document.getElementById('entry-comment');
       const saveEntryBtn = document.getElementById('save-entry-btn');
       const cancelEntryBtn = document.getElementById('cancel-entry-btn');
@@ -404,6 +432,43 @@
         });
       }
 
+      function resetPhotoPreview() {
+        if (photoPreviewUrl) {
+          URL.revokeObjectURL(photoPreviewUrl);
+        }
+        photoPreviewUrl = null;
+        selectedPhotoFile = null;
+        photoPreviewWrap.classList.add('hidden');
+        photoPreview.removeAttribute('src');
+        photoNameEl.textContent = '';
+      }
+
+      function renderPhotoPreview() {
+        if (!selectedPhotoFile) {
+          resetPhotoPreview();
+          return;
+        }
+
+        if (photoPreviewUrl) {
+          URL.revokeObjectURL(photoPreviewUrl);
+        }
+
+        photoPreviewUrl = URL.createObjectURL(selectedPhotoFile);
+        photoPreview.src = photoPreviewUrl;
+        photoPreviewWrap.classList.remove('hidden');
+        photoNameEl.textContent = selectedPhotoFile.name;
+      }
+
+      function openEntryForm(campaign) {
+        currentCampaign = campaign;
+        entryFormSection.classList.remove('hidden');
+        dashboard.classList.add('hidden');
+        entryMessageEl.textContent = '';
+        entryMessageEl.className = 'message';
+        entryForm.reset();
+        resetPhotoPreview();
+      }
+
       function renderCampaigns(campaigns) {
         campaignsSection.innerHTML = '';
 
@@ -424,12 +489,7 @@
             <button type="button" class="register-btn">Νέα εγγραφή</button>
           `;
           card.querySelector('.register-btn').addEventListener('click', () => {
-            currentCampaign = campaign;
-            entryFormSection.classList.remove('hidden');
-            dashboard.classList.add('hidden');
-            entryMessageEl.textContent = '';
-            entryMessageEl.className = 'message';
-            entryForm.reset();
+            openEntryForm(campaign);
           });
           fragment.appendChild(card);
         });
@@ -644,7 +704,7 @@
 
         const customerName = customerNameInput.value.trim();
         const comment = entryCommentInput.value.trim();
-        const photoFile = photoInput.files[0];
+        const photoFile = selectedPhotoFile || photoInput.files[0];
 
         if (!customerName || !photoFile) {
           entryMessageEl.textContent = 'Συμπληρώστε την επωνυμία πελάτη και επιλέξτε φωτογραφία.';
@@ -676,6 +736,7 @@
           entryMessageEl.textContent = 'Η εγγραφή αποθηκεύτηκε';
           entryMessageEl.className = 'message success';
           entryForm.reset();
+          resetPhotoPreview();
           currentCampaign = null;
           setTimeout(() => {
             entryFormSection.classList.add('hidden');
@@ -702,12 +763,36 @@
         entryFormSection.classList.add('hidden');
         dashboard.classList.remove('hidden');
         entryForm.reset();
+        resetPhotoPreview();
         currentCampaign = null;
         const campaigns = JSON.parse(sessionStorage.getItem('campaigns') || '[]');
         renderCampaigns(campaigns);
       });
 
-      entryForm.addEventListener('submit', saveEntry);
+      photoInput.addEventListener('change', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const file = event.target.files && event.target.files[0];
+        if (!file) {
+          selectedPhotoFile = null;
+          renderPhotoPreview();
+          return;
+        }
+        selectedPhotoFile = file;
+        renderPhotoPreview();
+        entryMessageEl.textContent = 'Φωτογραφία επιλεγμένη.';
+        entryMessageEl.className = 'message success';
+      });
+
+      saveEntryBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        saveEntry(event);
+      });
+
+      entryForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveEntry(event);
+      });
 
       logoutBtn.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
