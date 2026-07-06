@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="el">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ράφι καμπάνιες</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f5f7fb;
+        color: #1f2937;
+      }
+
+      .card {
+        width: min(90vw, 460px);
+        padding: 2rem;
+        border-radius: 16px;
+        background: white;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: clamp(1.5rem, 3vw, 2rem);
+      }
+
+      p {
+        margin: 0 0 1rem;
+        color: #4b5563;
+      }
+
+      form {
+        display: grid;
+        gap: 0.85rem;
+      }
+
+      label {
+        display: grid;
+        gap: 0.35rem;
+        font-weight: 600;
+      }
+
+      input {
+        padding: 0.8rem 0.9rem;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        font-size: 1rem;
+      }
+
+      button {
+        padding: 0.85rem 1rem;
+        border: 0;
+        border-radius: 10px;
+        background: #2563eb;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
+      .message {
+        min-height: 1.2rem;
+        margin-top: 0.35rem;
+        font-size: 0.95rem;
+      }
+
+      .message.error {
+        color: #b91c1c;
+      }
+
+      .message.success {
+        color: #15803d;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .dashboard {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .secondary-btn {
+        background: #e5e7eb;
+        color: #111827;
+      }
+
+      .campaign-list {
+        display: grid;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .campaign-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        background: #f9fafb;
+      }
+
+      .campaign-card h3 {
+        margin: 0 0 0.35rem;
+        font-size: 1.05rem;
+      }
+
+      .campaign-card p {
+        margin: 0.25rem 0;
+        color: #374151;
+      }
+
+      .campaign-card button {
+        margin-top: 0.75rem;
+        background: #16a34a;
+      }
+
+      .supervisor-list {
+        display: grid;
+        gap: 0.9rem;
+      }
+
+      .supervisor-card {
+        border: 1px solid #dbeafe;
+        border-radius: 12px;
+        padding: 1rem;
+        background: #eff6ff;
+        cursor: pointer;
+      }
+
+      .supervisor-card:hover {
+        background: #dbeafe;
+      }
+
+      .entries-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      @media (max-width: 768px) {
+        .entries-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .entry-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        background: #fafafa;
+      }
+
+      .entry-card img {
+        width: 100%;
+        height: 220px;
+        object-fit: cover;
+        border-radius: 10px;
+        margin-bottom: 0.75rem;
+        background: #e5e7eb;
+      }
+
+      .entry-meta {
+        display: grid;
+        gap: 0.3rem;
+        color: #374151;
+      }
+
+      .entry-meta strong {
+        color: #111827;
+      }
+
+      .back-btn {
+        background: #6b7280;
+        margin-bottom: 0.75rem;
+      }
+
+      .empty-state {
+        color: #6b7280;
+        padding: 0.75rem 0;
+      }
+
+      .entry-form {
+        display: grid;
+        gap: 0.9rem;
+        margin-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+        padding-top: 1rem;
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      .form-actions button:last-child {
+        background: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <section id="auth-view">
+        <h1>ράφι καμπάνιες</h1>
+        <p>Συνδεθείτε για να συνεχίσετε.</p>
+        <form id="login-form">
+          <label>
+            Email
+            <input id="email" name="email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            Κωδικός
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button id="submit-btn" type="button">Σύνδεση</button>
+        </form>
+        <div id="message" class="message"></div>
+      </section>
+
+      <section id="dashboard" class="dashboard hidden">
+        <h1>ράφι καμπάνιες</h1>
+        <p id="welcome-message">Καλώς ήρθες.</p>
+        <button id="logout-btn" class="secondary-btn" type="button">Αποσύνδεση</button>
+        <div id="campaigns-section" class="campaign-list"></div>
+        <div id="supervisor-section" class="hidden"></div>
+      </section>
+
+      <section id="entry-form-section" class="hidden">
+        <h2>Νέα εγγραφή</h2>
+        <form id="entry-form" class="entry-form">
+          <label>
+            Επωνυμία πελάτη
+            <input id="customer-name" name="customerName" type="text" required />
+          </label>
+          <label>
+            Φωτογραφία
+            <input id="photo-input" name="photo" type="file" accept="image/*" capture="environment" required />
+          </label>
+          <label>
+            Σχόλιο / αρ. τιμολογίου
+            <input id="entry-comment" name="comment" type="text" />
+          </label>
+          <div class="form-actions">
+            <button id="save-entry-btn" type="submit">Αποθήκευση εγγραφής</button>
+            <button id="cancel-entry-btn" type="button" class="secondary-btn">Ακύρωση</button>
+          </div>
+        </form>
+        <div id="entry-message" class="message"></div>
+      </section>
+    </main>
+
+    <script src="/supabase.js"></script>
+    <script>
+      let supabaseClient;
+      let isInitializing = false;
+      let currentCampaign = null;
+      const authView = document.getElementById('auth-view');
+      const dashboard = document.getElementById('dashboard');
+      const loginForm = document.getElementById('login-form');
+      const emailInput = document.getElementById('email');
+      const passwordInput = document.getElementById('password');
+      const submitBtn = document.getElementById('submit-btn');
+      const messageEl = document.getElementById('message');
+      const welcomeMessage = document.getElementById('welcome-message');
+      const campaignsSection = document.getElementById('campaigns-section');
+      const supervisorSection = document.getElementById('supervisor-section');
+      const entryFormSection = document.getElementById('entry-form-section');
+      const entryForm = document.getElementById('entry-form');
+      const customerNameInput = document.getElementById('customer-name');
+      const photoInput = document.getElementById('photo-input');
+      const entryCommentInput = document.getElementById('entry-comment');
+      const saveEntryBtn = document.getElementById('save-entry-btn');
+      const cancelEntryBtn = document.getElementById('cancel-entry-btn');
+      const entryMessageEl = document.getElementById('entry-message');
+      const logoutBtn = document.getElementById('logout-btn');
+
+      function setMessage(text, type = '') {
+        messageEl.textContent = text;
+        messageEl.className = `message ${type}`.trim();
+      }
+
+      function setSubmitting(isSubmitting) {
+        submitBtn.disabled = isSubmitting;
+        submitBtn.textContent = isSubmitting ? 'Σύνδεση...' : 'Σύνδεση';
+      }
+
+      function showAuthView() {
+        authView.classList.remove('hidden');
+        dashboard.classList.add('hidden');
+        entryFormSection.classList.add('hidden');
+        campaignsSection.innerHTML = '';
+      }
+
+      function showDashboard(role) {
+        authView.classList.add('hidden');
+        dashboard.classList.remove('hidden');
+        entryFormSection.classList.add('hidden');
+        supervisorSection.classList.add('hidden');
+        supervisorSection.innerHTML = '';
+
+        if (role === 'supervisor') {
+          welcomeMessage.textContent = 'Καλώς ήρθες, Προϊστάμενε';
+        } else if (role === 'seller') {
+          welcomeMessage.textContent = 'Καλώς ήρθες, Πωλητή';
+        } else {
+          welcomeMessage.textContent = 'Καλώς ήρθες';
+        }
+      }
+
+      async function getPublicConfig() {
+        const response = await fetch('/api/config');
+        if (!response.ok) {
+          throw new Error('Δεν μπόρεσε να φορτωθεί η διαμόρφωση του Supabase.');
+        }
+        return response.json();
+      }
+
+      async function getProfileRole(userId) {
+        const response = await fetch('/api/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+
+        if (!response.ok) {
+          throw new Error('Δεν μπόρεσε να ανακτηθεί ο ρόλος του χρήστη.');
+        }
+
+        const data = await response.json();
+        return data.role;
+      }
+
+      async function getMyCampaigns(userId) {
+        const response = await fetch('/api/my-campaigns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+
+        if (!response.ok) {
+          throw new Error('Δεν μπόρεσε να φορτωθούν οι καμπάνιες.');
+        }
+
+        const data = await response.json();
+        return data.campaigns || [];
+      }
+
+      async function getSupervisorCampaigns(userId) {
+        const response = await fetch('/api/supervisor-campaigns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+
+        if (!response.ok) {
+          throw new Error('Δεν μπόρεσε να φορτωθούν οι καμπάνιες του supervisor.');
+        }
+
+        const data = await response.json();
+        return data.campaigns || [];
+      }
+
+      async function getCampaignEntries(userId, campaignId) {
+        const response = await fetch('/api/campaign-entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, campaignId })
+        });
+
+        if (!response.ok) {
+          throw new Error('Δεν μπόρεσε να φορτωθούν οι εγγραφές της καμπάνιας.');
+        }
+
+        const data = await response.json();
+        return data.entries || [];
+      }
+
+      function formatDate(value) {
+        if (!value) {
+          return '—';
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return value;
+        }
+
+        return date.toLocaleDateString('el-GR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      }
+
+      function renderCampaigns(campaigns) {
+        campaignsSection.innerHTML = '';
+
+        if (!campaigns.length) {
+          campaignsSection.innerHTML = '<div class="empty-state">Δεν υπάρχουν καμπάνιες για εσένα αυτή τη στιγμή.</div>';
+          return;
+        }
+
+        const fragment = document.createDocumentFragment();
+
+        campaigns.forEach((campaign) => {
+          const card = document.createElement('article');
+          card.className = 'campaign-card';
+          card.innerHTML = `
+            <h3>${campaign.name}</h3>
+            <p><strong>Οδηγία:</strong> ${campaign.instruction || '—'}</p>
+            <p><strong>Προθεσμία:</strong> ${formatDate(campaign.deadline)}</p>
+            <button type="button" class="register-btn">Νέα εγγραφή</button>
+          `;
+          card.querySelector('.register-btn').addEventListener('click', () => {
+            currentCampaign = campaign;
+            entryFormSection.classList.remove('hidden');
+            dashboard.classList.add('hidden');
+            entryMessageEl.textContent = '';
+            entryMessageEl.className = 'message';
+            entryForm.reset();
+          });
+          fragment.appendChild(card);
+        });
+
+        campaignsSection.appendChild(fragment);
+      }
+
+      let currentSupervisorCampaigns = [];
+      let currentUserId = null;
+
+      function renderSupervisorCampaigns(campaigns) {
+        campaignsSection.innerHTML = '';
+        supervisorSection.innerHTML = '';
+        supervisorSection.classList.remove('hidden');
+
+        if (!campaigns.length) {
+          supervisorSection.innerHTML = '<div class="empty-state">Δεν υπάρχουν καμπάνιες προς προβολή.</div>';
+          return;
+        }
+
+        const list = document.createElement('div');
+        list.className = 'supervisor-list';
+
+        campaigns.forEach((campaign) => {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'supervisor-card';
+          card.innerHTML = `
+            <h3>${campaign.name}</h3>
+            <p><strong>Εγγραφές:</strong> ${campaign.entries_count}</p>
+            <p><strong>Προθεσμία:</strong> ${formatDate(campaign.deadline)}</p>
+          `;
+          card.addEventListener('click', async () => {
+            const entries = await getCampaignEntries(supabaseClient?.auth?.getUser ? (await supabaseClient.auth.getUser()).data.user?.id : null, campaign.id);
+            renderSupervisorEntries(campaign, entries);
+          });
+          list.appendChild(card);
+        });
+
+        supervisorSection.appendChild(list);
+      }
+
+      function renderSupervisorEntries(campaign, entries) {
+        supervisorSection.innerHTML = '';
+        const backButton = document.createElement('button');
+        backButton.type = 'button';
+        backButton.className = 'back-btn';
+        backButton.textContent = 'Πίσω';
+        backButton.addEventListener('click', () => {
+          renderSupervisorCampaigns(currentSupervisorCampaigns || []);
+        });
+
+        const title = document.createElement('h2');
+        title.textContent = campaign.name;
+
+        const grid = document.createElement('div');
+        grid.className = 'entries-grid';
+
+        if (!entries.length) {
+          const empty = document.createElement('div');
+          empty.className = 'empty-state';
+          empty.textContent = 'Δεν υπάρχουν εγγραφές για αυτή την καμπάνια.';
+          grid.appendChild(empty);
+        } else {
+          entries.forEach((entry) => {
+            const card = document.createElement('article');
+            card.className = 'entry-card';
+            card.innerHTML = `
+              ${entry.photo_url ? `<img src="${entry.photo_url}" alt="Φωτογραφία πελάτη" />` : '<div class="empty-state">Δεν υπάρχει φωτογραφία</div>'}
+              <div class="entry-meta">
+                <div><strong>Επωνυμία πελάτη:</strong> ${entry.customer_name || '—'}</div>
+                <div><strong>Πωλητής:</strong> ${entry.seller_name || '—'}</div>
+                <div><strong>Ημερομηνία:</strong> ${formatDate(entry.created_at)}</div>
+                <div><strong>Σχόλιο:</strong> ${entry.comment ? entry.comment : '—'}</div>
+              </div>
+            `;
+            grid.appendChild(card);
+          });
+        }
+
+        supervisorSection.append(backButton, title, grid);
+      }
+
+      async function initializeSupabase() {
+        if (isInitializing) {
+          return;
+        }
+
+        isInitializing = true;
+        setMessage('Φόρτωση σύνδεσης...', '');
+
+        const config = await getPublicConfig();
+        if (!config.supabaseUrl || !config.supabaseAnonKey) {
+          throw new Error('Δεν βρέθηκαν οι ρυθμίσεις Supabase. Ελέγξτε το .env.');
+        }
+
+        if (!supabaseClient) {
+          supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+              detectSessionInUrl: false
+            }
+          });
+        }
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+          currentUserId = session.user.id;
+          const role = await getProfileRole(session.user.id);
+          showDashboard(role);
+          if (role === 'seller') {
+            const campaigns = await getMyCampaigns(session.user.id);
+            sessionStorage.setItem('campaigns', JSON.stringify(campaigns));
+            renderCampaigns(campaigns);
+          } else if (role === 'supervisor') {
+            currentSupervisorCampaigns = await getSupervisorCampaigns(session.user.id);
+            renderSupervisorCampaigns(currentSupervisorCampaigns);
+          }
+          setMessage('Σύνδεση επιτυχής.', 'success');
+        } else {
+          showAuthView();
+          setMessage('');
+        }
+
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_OUT') {
+            currentUserId = null;
+            currentSupervisorCampaigns = [];
+            showAuthView();
+            setMessage('');
+          } else if (event === 'SIGNED_IN' && session) {
+            try {
+              currentUserId = session.user.id;
+              const role = await getProfileRole(session.user.id);
+              showDashboard(role);
+              if (role === 'seller') {
+                const campaigns = await getMyCampaigns(session.user.id);
+                sessionStorage.setItem('campaigns', JSON.stringify(campaigns));
+                renderCampaigns(campaigns);
+              } else if (role === 'supervisor') {
+                currentSupervisorCampaigns = await getSupervisorCampaigns(session.user.id);
+                renderSupervisorCampaigns(currentSupervisorCampaigns);
+              }
+              setMessage('Σύνδεση επιτυχής.', 'success');
+            } catch (error) {
+              showDashboard();
+              setMessage(error.message, 'error');
+            }
+          }
+        });
+      }
+
+      async function handleLogin() {
+        setMessage('Σύνδεση...', '');
+        setSubmitting(true);
+
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        try {
+          if (!supabaseClient) {
+            throw new Error('Το Supabase client δεν έχει αρχικοποιηθεί ακόμη.');
+          }
+
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+          if (error) {
+            setMessage('Λάθος στοιχεία σύνδεσης. Δοκιμάστε ξανά.', 'error');
+            return;
+          }
+
+          currentUserId = data.user.id;
+          const role = await getProfileRole(data.user.id);
+          showDashboard(role);
+          if (role === 'seller') {
+            const campaigns = await getMyCampaigns(data.user.id);
+            sessionStorage.setItem('campaigns', JSON.stringify(campaigns));
+            renderCampaigns(campaigns);
+          } else if (role === 'supervisor') {
+            currentSupervisorCampaigns = await getSupervisorCampaigns(data.user.id);
+            renderSupervisorCampaigns(currentSupervisorCampaigns);
+          }
+          setMessage('Σύνδεση επιτυχής.', 'success');
+        } catch (error) {
+          setMessage(error.message || 'Σφάλμα σύνδεσης με τη βάση. Δοκιμάστε ξανά.', 'error');
+        } finally {
+          setSubmitting(false);
+        }
+      }
+
+      loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await handleLogin();
+      });
+
+      submitBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        await handleLogin();
+      });
+
+      async function saveEntry(event) {
+        event.preventDefault();
+        entryMessageEl.textContent = 'Αποθήκευση...';
+        entryMessageEl.className = 'message';
+
+        if (!currentCampaign) {
+          entryMessageEl.textContent = 'Επιλέξτε καμπάνια πρώτα.';
+          entryMessageEl.className = 'message error';
+          return;
+        }
+
+        const customerName = customerNameInput.value.trim();
+        const comment = entryCommentInput.value.trim();
+        const photoFile = photoInput.files[0];
+
+        if (!customerName || !photoFile) {
+          entryMessageEl.textContent = 'Συμπληρώστε την επωνυμία πελάτη και επιλέξτε φωτογραφία.';
+          entryMessageEl.className = 'message error';
+          return;
+        }
+
+        try {
+          const fileName = `${currentCampaign.id}-${Date.now()}-${Math.random().toString(36).slice(2)}-${photoFile.name}`;
+          const uploadResponse = await fetch('/api/save-entry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: (await supabaseClient.auth.getUser()).data.user?.id,
+              campaignId: currentCampaign.id,
+              customerName,
+              photoFileName: fileName,
+              photoMimeType: photoFile.type,
+              comment,
+              photoBase64: await readFileAsBase64(photoFile)
+            })
+          });
+
+          const uploadData = await uploadResponse.json();
+          if (!uploadResponse.ok) {
+            throw new Error(uploadData.error || 'Αποτυχία αποθήκευσης');
+          }
+
+          entryMessageEl.textContent = 'Η εγγραφή αποθηκεύτηκε';
+          entryMessageEl.className = 'message success';
+          entryForm.reset();
+          currentCampaign = null;
+          setTimeout(() => {
+            entryFormSection.classList.add('hidden');
+            showDashboard('seller');
+            const campaigns = JSON.parse(sessionStorage.getItem('campaigns') || '[]');
+            renderCampaigns(campaigns);
+          }, 800);
+        } catch (error) {
+          entryMessageEl.textContent = error.message || 'Σφάλμα αποθήκευσης εγγραφής.';
+          entryMessageEl.className = 'message error';
+        }
+      }
+
+      function readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      cancelEntryBtn.addEventListener('click', () => {
+        entryFormSection.classList.add('hidden');
+        dashboard.classList.remove('hidden');
+        entryForm.reset();
+        currentCampaign = null;
+        const campaigns = JSON.parse(sessionStorage.getItem('campaigns') || '[]');
+        renderCampaigns(campaigns);
+      });
+
+      entryForm.addEventListener('submit', saveEntry);
+
+      logoutBtn.addEventListener('click', async () => {
+        await supabaseClient.auth.signOut();
+      });
+
+      initializeSupabase().catch((error) => {
+        setMessage(error.message || 'Δεν μπόρεσε να γίνει αρχικοποίηση.', 'error');
+        setSubmitting(false);
+      });
+    </script>
+  </body>
+</html>
