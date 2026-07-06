@@ -291,6 +291,7 @@
       let currentCampaign = null;
       let selectedPhotoFile = null;
       let photoPreviewUrl = null;
+      let formDraft = { customerName: '', comment: '' };
       const authView = document.getElementById('auth-view');
       const dashboard = document.getElementById('dashboard');
       const loginForm = document.getElementById('login-form');
@@ -443,6 +444,29 @@
         photoNameEl.textContent = '';
       }
 
+      function saveFormDraft() {
+        formDraft = {
+          customerName: customerNameInput.value,
+          comment: entryCommentInput.value
+        };
+      }
+
+      function restoreFormDraft() {
+        customerNameInput.value = formDraft.customerName || '';
+        entryCommentInput.value = formDraft.comment || '';
+      }
+
+      function restoreEntryFormState() {
+        if (!currentCampaign) {
+          return;
+        }
+
+        restoreFormDraft();
+        if (selectedPhotoFile) {
+          renderPhotoPreview();
+        }
+      }
+
       function renderPhotoPreview() {
         if (!selectedPhotoFile) {
           resetPhotoPreview();
@@ -465,7 +489,9 @@
         dashboard.classList.add('hidden');
         entryMessageEl.textContent = '';
         entryMessageEl.className = 'message';
-        entryForm.reset();
+        formDraft = { customerName: '', comment: '' };
+        customerNameInput.value = '';
+        entryCommentInput.value = '';
         resetPhotoPreview();
       }
 
@@ -762,11 +788,36 @@
       cancelEntryBtn.addEventListener('click', () => {
         entryFormSection.classList.add('hidden');
         dashboard.classList.remove('hidden');
-        entryForm.reset();
+        customerNameInput.value = '';
+        entryCommentInput.value = '';
         resetPhotoPreview();
+        formDraft = { customerName: '', comment: '' };
         currentCampaign = null;
         const campaigns = JSON.parse(sessionStorage.getItem('campaigns') || '[]');
         renderCampaigns(campaigns);
+      });
+
+      customerNameInput.addEventListener('input', saveFormDraft);
+      entryCommentInput.addEventListener('input', saveFormDraft);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          restoreEntryFormState();
+        }
+      });
+
+      window.addEventListener('pageshow', () => {
+        restoreEntryFormState();
+      });
+
+      entryForm.addEventListener('reset', (event) => {
+        event.preventDefault();
+        restoreFormDraft();
+        if (selectedPhotoFile) {
+          renderPhotoPreview();
+        } else {
+          resetPhotoPreview();
+        }
       });
 
       photoInput.addEventListener('change', (event) => {
