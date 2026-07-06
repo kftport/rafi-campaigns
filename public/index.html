@@ -291,7 +291,8 @@
       let currentCampaign = null;
       let selectedPhotoFile = null;
       let photoPreviewUrl = null;
-      let formDraft = { customerName: '', comment: '' };
+      let formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
+      const entryDraftStorageKey = 'rafi-entry-form-draft';
       const authView = document.getElementById('auth-view');
       const dashboard = document.getElementById('dashboard');
       const loginForm = document.getElementById('login-form');
@@ -433,6 +434,39 @@
         });
       }
 
+      function saveEntryDraftToStorage() {
+        const draft = {
+          isActive: Boolean(currentCampaign),
+          campaignId: currentCampaign?.id || null,
+          customerName: customerNameInput.value,
+          comment: entryCommentInput.value,
+          photoName: formDraft.photoName || '',
+          photoMimeType: formDraft.photoMimeType || '',
+          photoBase64: formDraft.photoBase64 || '',
+          photoDataUrl: formDraft.photoDataUrl || ''
+        };
+
+        formDraft = draft;
+        if (draft.isActive && draft.campaignId) {
+          sessionStorage.setItem(entryDraftStorageKey, JSON.stringify(draft));
+        } else {
+          sessionStorage.removeItem(entryDraftStorageKey);
+        }
+      }
+
+      function readEntryDraftFromStorage() {
+        try {
+          const stored = sessionStorage.getItem(entryDraftStorageKey);
+          return stored ? JSON.parse(stored) : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function clearEntryDraftFromStorage() {
+        sessionStorage.removeItem(entryDraftStorageKey);
+      }
+
       function resetPhotoPreview() {
         if (photoPreviewUrl) {
           URL.revokeObjectURL(photoPreviewUrl);
@@ -444,31 +478,8 @@
         photoNameEl.textContent = '';
       }
 
-      function saveFormDraft() {
-        formDraft = {
-          customerName: customerNameInput.value,
-          comment: entryCommentInput.value
-        };
-      }
-
-      function restoreFormDraft() {
-        customerNameInput.value = formDraft.customerName || '';
-        entryCommentInput.value = formDraft.comment || '';
-      }
-
-      function restoreEntryFormState() {
-        if (!currentCampaign) {
-          return;
-        }
-
-        restoreFormDraft();
-        if (selectedPhotoFile) {
-          renderPhotoPreview();
-        }
-      }
-
       function renderPhotoPreview() {
-        if (!selectedPhotoFile) {
+        if (!formDraft.photoDataUrl) {
           resetPhotoPreview();
           return;
         }
@@ -477,10 +488,41 @@
           URL.revokeObjectURL(photoPreviewUrl);
         }
 
-        photoPreviewUrl = URL.createObjectURL(selectedPhotoFile);
-        photoPreview.src = photoPreviewUrl;
+        photoPreview.src = formDraft.photoDataUrl;
         photoPreviewWrap.classList.remove('hidden');
-        photoNameEl.textContent = selectedPhotoFile.name;
+        photoNameEl.textContent = formDraft.photoName || 'Φωτογραφία';
+      }
+
+      function restoreFormDraft() {
+        customerNameInput.value = formDraft.customerName || '';
+        entryCommentInput.value = formDraft.comment || '';
+      }
+
+      function restoreEntryFormState() {
+        const draft = readEntryDraftFromStorage();
+        if (!draft || !draft.isActive || !draft.campaignId) {
+          return false;
+        }
+
+        const campaigns = JSON.parse(sessionStorage.getItem('campaigns') || '[]');
+        const matchingCampaign = campaigns.find((campaign) => String(campaign.id) === String(draft.campaignId));
+        if (!matchingCampaign) {
+          return false;
+        }
+
+        currentCampaign = matchingCampaign;
+        formDraft = { ...draft };
+        entryFormSection.classList.remove('hidden');
+        dashboard.classList.add('hidden');
+        entryMessageEl.textContent = '';
+        entryMessageEl.className = 'message';
+        restoreFormDraft();
+        if (formDraft.photoDataUrl) {
+          renderPhotoPreview();
+        } else {
+          resetPhotoPreview();
+        }
+        return true;
       }
 
       function openEntryForm(campaign) {
@@ -489,10 +531,20 @@
         dashboard.classList.add('hidden');
         entryMessageEl.textContent = '';
         entryMessageEl.className = 'message';
-        formDraft = { customerName: '', comment: '' };
+        formDraft = {
+          customerName: '',
+          comment: '',
+          photoName: '',
+          photoMimeType: '',
+          photoBase64: '',
+          photoDataUrl: '',
+          campaignId: campaign.id,
+          isActive: true
+        };
         customerNameInput.value = '';
         entryCommentInput.value = '';
         resetPhotoPreview();
+        saveEntryDraftToStorage();
       }
 
       function renderCampaigns(campaigns) {
@@ -631,6 +683,7 @@
             const campaigns = await getMyCampaigns(session.user.id);
             sessionStorage.setItem('campaigns', JSON.stringify(campaigns));
             renderCampaigns(campaigns);
+            restoreEntryFormState();
           } else if (role === 'supervisor') {
             currentSupervisorCampaigns = await getSupervisorCampaigns(session.user.id);
             renderSupervisorCampaigns(currentSupervisorCampaigns);
@@ -656,6 +709,7 @@
                 const campaigns = await getMyCampaigns(session.user.id);
                 sessionStorage.setItem('campaigns', JSON.stringify(campaigns));
                 renderCampaigns(campaigns);
+                restoreEntryFormState();
               } else if (role === 'supervisor') {
                 currentSupervisorCampaigns = await getSupervisorCampaigns(session.user.id);
                 renderSupervisorCampaigns(currentSupervisorCampaigns);
@@ -695,6 +749,7 @@
             const campaigns = await getMyCampaigns(data.user.id);
             sessionStorage.setItem('campaigns', JSON.stringify(campaigns));
             renderCampaigns(campaigns);
+            restoreEntryFormState();
           } else if (role === 'supervisor') {
             currentSupervisorCampaigns = await getSupervisorCampaigns(data.user.id);
             renderSupervisorCampaigns(currentSupervisorCampaigns);
@@ -732,14 +787,26 @@
         const comment = entryCommentInput.value.trim();
         const photoFile = selectedPhotoFile || photoInput.files[0];
 
-        if (!customerName || !photoFile) {
+        if (!customerName || (!formDraft.photoBase64 && !photoFile)) {
           entryMessageEl.textContent = 'Συμπληρώστε την επωνυμία πελάτη και επιλέξτε φωτογραφία.';
           entryMessageEl.className = 'message error';
           return;
         }
 
         try {
-          const fileName = `${currentCampaign.id}-${Date.now()}-${Math.random().toString(36).slice(2)}-${photoFile.name}`;
+          let photoBase64 = formDraft.photoBase64;
+          let photoMimeType = formDraft.photoMimeType || (photoFile && photoFile.type) || 'image/jpeg';
+          let photoName = formDraft.photoName || (photoFile && photoFile.name) || 'photo.jpg';
+
+          if (!photoBase64 && photoFile) {
+            photoBase64 = await readFileAsBase64(photoFile);
+          }
+
+          if (!photoBase64) {
+            throw new Error('Η φωτογραφία δεν είναι διαθέσιμη για αποθήκευση.');
+          }
+
+          const fileName = `${currentCampaign.id}-${Date.now()}-${Math.random().toString(36).slice(2)}-${photoName}`;
           const uploadResponse = await fetch('/api/save-entry', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -748,9 +815,9 @@
               campaignId: currentCampaign.id,
               customerName,
               photoFileName: fileName,
-              photoMimeType: photoFile.type,
+              photoMimeType,
               comment,
-              photoBase64: await readFileAsBase64(photoFile)
+              photoBase64
             })
           });
 
@@ -761,7 +828,10 @@
 
           entryMessageEl.textContent = 'Η εγγραφή αποθηκεύτηκε';
           entryMessageEl.className = 'message success';
-          entryForm.reset();
+          clearEntryDraftFromStorage();
+          customerNameInput.value = '';
+          entryCommentInput.value = '';
+          formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
           resetPhotoPreview();
           currentCampaign = null;
           setTimeout(() => {
@@ -790,15 +860,20 @@
         dashboard.classList.remove('hidden');
         customerNameInput.value = '';
         entryCommentInput.value = '';
+        clearEntryDraftFromStorage();
+        formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
         resetPhotoPreview();
-        formDraft = { customerName: '', comment: '' };
         currentCampaign = null;
         const campaigns = JSON.parse(sessionStorage.getItem('campaigns') || '[]');
         renderCampaigns(campaigns);
       });
 
-      customerNameInput.addEventListener('input', saveFormDraft);
-      entryCommentInput.addEventListener('input', saveFormDraft);
+      customerNameInput.addEventListener('input', () => {
+        saveEntryDraftToStorage();
+      });
+      entryCommentInput.addEventListener('input', () => {
+        saveEntryDraftToStorage();
+      });
 
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
@@ -810,26 +885,27 @@
         restoreEntryFormState();
       });
 
-      entryForm.addEventListener('reset', (event) => {
-        event.preventDefault();
-        restoreFormDraft();
-        if (selectedPhotoFile) {
-          renderPhotoPreview();
-        } else {
-          resetPhotoPreview();
-        }
-      });
-
-      photoInput.addEventListener('change', (event) => {
+      photoInput.addEventListener('change', async (event) => {
         event.preventDefault();
         event.stopPropagation();
         const file = event.target.files && event.target.files[0];
         if (!file) {
           selectedPhotoFile = null;
+          formDraft.photoName = '';
+          formDraft.photoMimeType = '';
+          formDraft.photoBase64 = '';
+          formDraft.photoDataUrl = '';
+          saveEntryDraftToStorage();
           renderPhotoPreview();
           return;
         }
         selectedPhotoFile = file;
+        const photoBase64 = await readFileAsBase64(file);
+        formDraft.photoName = file.name;
+        formDraft.photoMimeType = file.type || 'image/jpeg';
+        formDraft.photoBase64 = photoBase64;
+        formDraft.photoDataUrl = `data:${file.type || 'image/jpeg'};base64,${photoBase64}`;
+        saveEntryDraftToStorage();
         renderPhotoPreview();
         entryMessageEl.textContent = 'Φωτογραφία επιλεγμένη.';
         entryMessageEl.className = 'message success';
