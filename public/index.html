@@ -84,13 +84,13 @@
         color: #15803d;
       }
 
-      .hidden {
-        display: none;
-      }
-
       .dashboard {
         display: grid;
         gap: 1rem;
+      }
+
+      .hidden {
+        display: none;
       }
 
       .secondary-btn {
@@ -243,7 +243,7 @@
   </head>
   <body>
     <main class="card">
-      <section id="auth-view">
+      <section id="screen-login">
         <h1>ράφι καμπάνιες</h1>
         <p>Συνδεθείτε για να συνεχίσετε.</p>
         <form id="login-form">
@@ -260,39 +260,41 @@
         <div id="message" class="message"></div>
       </section>
 
-      <section id="dashboard" class="dashboard hidden">
-        <h1>ράφι καμπάνιες</h1>
-        <p id="welcome-message">Καλώς ήρθες.</p>
-        <button id="logout-btn" class="secondary-btn" type="button">Αποσύνδεση</button>
-        <div id="campaigns-section" class="campaign-list"></div>
-        <div id="supervisor-section" class="hidden"></div>
-      </section>
+      <section id="screen-dashboard" class="hidden">
+        <section id="dashboard" class="dashboard hidden">
+          <h1>ράφι καμπάνιες</h1>
+          <p id="welcome-message">Καλώς ήρθες.</p>
+          <button id="logout-btn" class="secondary-btn" type="button">Αποσύνδεση</button>
+          <div id="campaigns-section" class="campaign-list"></div>
+          <div id="supervisor-section" class="hidden"></div>
+        </section>
 
-      <section id="entry-form-section" class="hidden">
-        <h2>Νέα εγγραφή</h2>
-        <form id="entry-form" class="entry-form">
-          <label>
-            Επωνυμία πελάτη
-            <input id="customer-name" name="customerName" type="text" required />
-          </label>
-          <label>
-            Φωτογραφία
-            <input id="photo-input" name="photo" type="file" accept="image/*" capture="environment" />
-            <div id="photo-preview-wrap" class="photo-preview-wrap hidden">
-              <img id="photo-preview" alt="Προεπισκόπηση φωτογραφίας" />
-              <div id="photo-name" class="photo-name"></div>
+        <section id="entry-form-section" class="hidden">
+          <h2>Νέα εγγραφή</h2>
+          <form id="entry-form" class="entry-form">
+            <label>
+              Επωνυμία πελάτη
+              <input id="customer-name" name="customerName" type="text" required />
+            </label>
+            <label>
+              Φωτογραφία
+              <input id="photo-input" name="photo" type="file" accept="image/*" capture="environment" />
+              <div id="photo-preview-wrap" class="photo-preview-wrap hidden">
+                <img id="photo-preview" alt="Προεπισκόπηση φωτογραφίας" />
+                <div id="photo-name" class="photo-name"></div>
+              </div>
+            </label>
+            <label>
+              Σχόλιο / αρ. τιμολογίου
+              <input id="entry-comment" name="comment" type="text" />
+            </label>
+            <div class="form-actions">
+              <button id="save-entry-btn" type="button">Αποθήκευση εγγραφής</button>
+              <button id="cancel-entry-btn" type="button" class="secondary-btn">Ακύρωση</button>
             </div>
-          </label>
-          <label>
-            Σχόλιο / αρ. τιμολογίου
-            <input id="entry-comment" name="comment" type="text" />
-          </label>
-          <div class="form-actions">
-            <button id="save-entry-btn" type="button">Αποθήκευση εγγραφής</button>
-            <button id="cancel-entry-btn" type="button" class="secondary-btn">Ακύρωση</button>
-          </div>
-        </form>
-        <div id="entry-message" class="message"></div>
+          </form>
+          <div id="entry-message" class="message"></div>
+        </section>
       </section>
     </main>
 
@@ -305,7 +307,8 @@
       let photoPreviewUrl = null;
       let formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
       const entryDraftStorageKey = 'rafi-entry-form-draft';
-      const authView = document.getElementById('auth-view');
+      const loginScreen = document.getElementById('screen-login');
+      const dashboardScreen = document.getElementById('screen-dashboard');
       const dashboard = document.getElementById('dashboard');
       const loginForm = document.getElementById('login-form');
       const emailInput = document.getElementById('email');
@@ -339,14 +342,32 @@
       }
 
       function showAuthView() {
-        authView.classList.remove('hidden');
+        loginScreen.classList.remove('hidden');
+        dashboardScreen.classList.add('hidden');
         dashboard.classList.add('hidden');
         entryFormSection.classList.add('hidden');
         campaignsSection.innerHTML = '';
+        supervisorSection.innerHTML = '';
+        supervisorSection.classList.add('hidden');
+        welcomeMessage.textContent = 'Καλώς ήρθες.';
+        currentCampaign = null;
+        currentUserId = null;
+        currentSupervisorCampaigns = [];
+        formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
+        entryForm.reset();
+        resetPhotoPreview();
+        entryMessageEl.textContent = '';
+        entryMessageEl.className = 'message';
+        clearEntryDraftFromStorage();
+        sessionStorage.removeItem('campaigns');
+        emailInput.value = '';
+        passwordInput.value = '';
+        setMessage('');
       }
 
       function showDashboard(role) {
-        authView.classList.add('hidden');
+        loginScreen.classList.add('hidden');
+        dashboardScreen.classList.remove('hidden');
         dashboard.classList.remove('hidden');
         entryFormSection.classList.add('hidden');
         supervisorSection.classList.add('hidden');
