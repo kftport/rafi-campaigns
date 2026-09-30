@@ -6,6 +6,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const configHandler = require('./api/config');
 const profileHandler = require('./api/profile');
 const myCampaignsHandler = require('./api/my-campaigns');
+const myEntriesHandler = require('./api/my-entries');
 const saveEntryHandler = require('./api/save-entry');
 const supervisorCampaignsHandler = require('./api/supervisor-campaigns');
 const campaignEntriesHandler = require('./api/campaign-entries');
@@ -29,6 +30,9 @@ app.post('/api/profile', profileHandler);
 
 app.options('/api/my-campaigns', myCampaignsHandler);
 app.post('/api/my-campaigns', myCampaignsHandler);
+
+app.options('/api/my-entries', myEntriesHandler);
+app.post('/api/my-entries', myEntriesHandler);
 
 app.options('/api/save-entry', saveEntryHandler);
 app.post('/api/save-entry', saveEntryHandler);

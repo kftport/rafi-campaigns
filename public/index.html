@@ -126,6 +126,60 @@
         background: #16a34a;
       }
 
+      .my-entries-section {
+        margin-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+        padding-top: 0.8rem;
+      }
+
+      .my-entries-section h4 {
+        margin: 0 0 0.55rem;
+        font-size: 0.98rem;
+      }
+
+      .my-entries-list {
+        display: grid;
+        gap: 0.6rem;
+      }
+
+      .my-entry-item {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr);
+        gap: 0.7rem;
+        align-items: center;
+        min-width: 0;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .my-entry-item img,
+      .my-entry-placeholder {
+        width: 64px;
+        height: 64px;
+        border-radius: 6px;
+        object-fit: cover;
+        background: #e5e7eb;
+      }
+
+      .my-entry-placeholder {
+        display: grid;
+        place-items: center;
+        color: #6b7280;
+        font-size: 0.75rem;
+        text-align: center;
+      }
+
+      .my-entry-details {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: 0.9rem;
+      }
+
+      .my-entry-details p {
+        margin: 0.2rem 0 0;
+        font-size: 0.85rem;
+      }
+
       .supervisor-list {
         display: grid;
         gap: 0.9rem;
@@ -434,6 +488,30 @@
         return data.campaigns || [];
       }
 
+      async function getMyEntries(campaignId) {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session || !currentUserId) {
+          throw new Error('Η σύνδεσή σου έληξε. Συνδέσου ξανά.');
+        }
+
+        const response = await fetch('/api/my-entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            campaign_id: campaignId,
+            seller_id: currentUserId,
+            authToken: session.access_token
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Δεν μπόρεσαν να φορτωθούν οι εγγραφές σου.');
+        }
+
+        const data = await response.json();
+        return data.entries || [];
+      }
+
       async function getSupervisorCampaigns(userId) {
         const response = await fetch('/api/supervisor-campaigns', {
           method: 'POST',
@@ -479,6 +557,71 @@
           month: '2-digit',
           year: 'numeric'
         });
+      }
+
+      async function loadMyEntries(campaign, listElement) {
+        if (!listElement) {
+          return;
+        }
+
+        listElement.replaceChildren();
+        const loading = document.createElement('div');
+        loading.className = 'empty-state';
+        loading.textContent = 'Φόρτωση εγγραφών...';
+        listElement.appendChild(loading);
+
+        try {
+          const entries = await getMyEntries(campaign.id);
+          listElement.replaceChildren();
+
+          if (!entries.length) {
+            const empty = document.createElement('div');
+            empty.className = 'empty-state';
+            empty.textContent = 'Δεν έχεις κάνει εγγραφές ακόμα';
+            listElement.appendChild(empty);
+            return;
+          }
+
+          entries.forEach((entry) => {
+            const item = document.createElement('article');
+            item.className = 'my-entry-item';
+
+            if (entry.photo_url) {
+              const image = document.createElement('img');
+              image.src = entry.photo_url;
+              image.alt = `Φωτογραφία ${entry.customer_name || 'πελάτη'}`;
+              item.appendChild(image);
+            } else {
+              const placeholder = document.createElement('div');
+              placeholder.className = 'my-entry-placeholder';
+              placeholder.textContent = 'Χωρίς φωτό';
+              item.appendChild(placeholder);
+            }
+
+            const details = document.createElement('div');
+            details.className = 'my-entry-details';
+            const customerName = document.createElement('strong');
+            customerName.textContent = entry.customer_name || '—';
+            const date = document.createElement('p');
+            date.textContent = formatDate(entry.created_at);
+            details.append(customerName, date);
+
+            if (entry.comment) {
+              const comment = document.createElement('p');
+              comment.textContent = entry.comment;
+              details.appendChild(comment);
+            }
+
+            item.appendChild(details);
+            listElement.appendChild(item);
+          });
+        } catch (error) {
+          listElement.replaceChildren();
+          const failure = document.createElement('div');
+          failure.className = 'empty-state';
+          failure.textContent = 'Δεν ήταν δυνατή η φόρτωση των εγγραφών.';
+          listElement.appendChild(failure);
+        }
       }
 
       async function exportCampaignPackage(campaign) {
@@ -655,6 +798,7 @@
 
       function renderCampaigns(campaigns) {
         campaignsSection.innerHTML = '';
+        myEntriesContainers.clear();
 
         if (!campaigns.length) {
           campaignsSection.innerHTML = '<div class="empty-state">Δεν υπάρχουν καμπάνιες για εσένα αυτή τη στιγμή.</div>';
@@ -671,11 +815,18 @@
             <p><strong>Οδηγία:</strong> ${campaign.instruction || '—'}</p>
             <p><strong>Προθεσμία:</strong> ${formatDate(campaign.deadline)}</p>
             <button type="button" class="register-btn">Νέα εγγραφή</button>
+            <section class="my-entries-section">
+              <h4>Οι εγγραφές μου</h4>
+              <div class="my-entries-list"></div>
+            </section>
           `;
+          const myEntriesList = card.querySelector('.my-entries-list');
+          myEntriesContainers.set(String(campaign.id), myEntriesList);
           card.querySelector('.register-btn').addEventListener('click', () => {
             openEntryForm(campaign);
           });
           fragment.appendChild(card);
+          loadMyEntries(campaign, myEntriesList);
         });
 
         campaignsSection.appendChild(fragment);
@@ -683,6 +834,7 @@
 
       let currentSupervisorCampaigns = [];
       let currentUserId = null;
+      const myEntriesContainers = new Map();
 
       function renderSupervisorCampaigns(campaigns) {
         campaignsSection.innerHTML = '';
@@ -955,8 +1107,10 @@
             throw new Error(uploadData.error || 'Αποτυχία αποθήκευσης');
           }
 
+          const savedCampaign = currentCampaign;
           entryMessageEl.textContent = 'Η εγγραφή αποθηκεύτηκε';
           entryMessageEl.className = 'message success';
+          loadMyEntries(savedCampaign, myEntriesContainers.get(String(savedCampaign.id)));
           clearEntryDraftFromStorage();
           customerNameInput.value = '';
           entryCommentInput.value = '';
