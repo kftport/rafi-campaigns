@@ -9,6 +9,7 @@ const myCampaignsHandler = require('./api/my-campaigns');
 const saveEntryHandler = require('./api/save-entry');
 const supervisorCampaignsHandler = require('./api/supervisor-campaigns');
 const campaignEntriesHandler = require('./api/campaign-entries');
+const exportCampaignHandler = require('./api/export-campaign');
 
 const app = express();
 
@@ -39,6 +40,10 @@ app.get('/api/supervisor-campaigns', supervisorCampaignsHandler);
 app.options('/api/campaign-entries', campaignEntriesHandler);
 app.post('/api/campaign-entries', campaignEntriesHandler);
 app.get('/api/campaign-entries', campaignEntriesHandler);
+
+app.options('/api/export-campaign', exportCampaignHandler);
+app.post('/api/export-campaign', exportCampaignHandler);
+app.get('/api/export-campaign', exportCampaignHandler);
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

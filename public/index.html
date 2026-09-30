@@ -186,6 +186,18 @@
         margin-bottom: 0.75rem;
       }
 
+      .entry-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: center;
+        margin-bottom: 0.75rem;
+      }
+
+      .export-btn {
+        background: #0f766e;
+      }
+
       .empty-state {
         color: #6b7280;
         padding: 0.75rem 0;
@@ -434,6 +446,58 @@
         });
       }
 
+      async function exportCampaignPackage(campaign) {
+        if (!currentUserId) {
+          throw new Error('Πρέπει να συνδεθείτε για να κάνετε εξαγωγή πακέτου.');
+        }
+
+        console.log('[export] starting request', { userId: currentUserId, campaignId: campaign.id, campaignName: campaign.name });
+        const response = await fetch('/api/export-campaign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: currentUserId, campaign_id: campaign.id })
+        });
+
+        console.log('[export] response received', {
+          status: response.status,
+          ok: response.ok,
+          contentType: response.headers.get('content-type'),
+          contentDisposition: response.headers.get('content-disposition')
+        });
+
+        if (!response.ok) {
+          let errorMessage = 'Δεν ήταν δυνατή η εξαγωγή του πακέτου.';
+          try {
+            const data = await response.json();
+            errorMessage = data.error || errorMessage;
+          } catch (error) {
+            const fallbackText = await response.text();
+            if (fallbackText) {
+              errorMessage = fallbackText;
+            }
+          }
+          console.error('[export] backend request failed', { status: response.status, errorMessage });
+          throw new Error(errorMessage);
+        }
+
+        const blob = await response.blob();
+        console.log('[export] blob created', { size: blob.size, type: blob.type });
+
+        const contentDisposition = response.headers.get('content-disposition') || '';
+        const match = contentDisposition.match(/filename\s*=\s*"?([^";]+)"?/i);
+        const fileName = match ? decodeURIComponent(match[1]) : `campaign-${String(campaign.name || 'export').replace(/\s+/g, '-').replace(/[^\w\-Α-Ωα-ω0-9]/g, '')}.zip`;
+
+        const downloadUrl = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = downloadUrl;
+        downloadLink.download = fileName;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(downloadUrl);
+        console.log('[export] download triggered', { fileName, size: blob.size });
+      }
+
       function saveEntryDraftToStorage() {
         const draft = {
           isActive: Boolean(currentCampaign),
@@ -612,6 +676,10 @@
 
       function renderSupervisorEntries(campaign, entries) {
         supervisorSection.innerHTML = '';
+
+        const actions = document.createElement('div');
+        actions.className = 'entry-actions';
+
         const backButton = document.createElement('button');
         backButton.type = 'button';
         backButton.className = 'back-btn';
@@ -619,6 +687,25 @@
         backButton.addEventListener('click', () => {
           renderSupervisorCampaigns(currentSupervisorCampaigns || []);
         });
+
+        const exportButton = document.createElement('button');
+        exportButton.type = 'button';
+        exportButton.className = 'export-btn';
+        exportButton.textContent = 'Εξαγωγή πακέτου';
+        exportButton.addEventListener('click', async () => {
+          try {
+            exportButton.disabled = true;
+            exportButton.textContent = 'Γίνεται εξαγωγή...';
+            await exportCampaignPackage(campaign);
+          } catch (error) {
+            setMessage(error.message || 'Δεν ήταν δυνατή η εξαγωγή του πακέτου.', 'error');
+          } finally {
+            exportButton.disabled = false;
+            exportButton.textContent = 'Εξαγωγή πακέτου';
+          }
+        });
+
+        actions.append(backButton, exportButton);
 
         const title = document.createElement('h2');
         title.textContent = campaign.name;
@@ -648,7 +735,7 @@
           });
         }
 
-        supervisorSection.append(backButton, title, grid);
+        supervisorSection.append(actions, title, grid);
       }
 
       async function initializeSupabase() {
