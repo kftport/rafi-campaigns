@@ -227,6 +227,12 @@
         gap: 0.4rem;
       }
 
+      .photo-field {
+        display: grid;
+        gap: 0.35rem;
+        font-weight: 600;
+      }
+
       .photo-preview-wrap img {
         width: 100%;
         max-height: 220px;
@@ -276,14 +282,19 @@
               Επωνυμία πελάτη
               <input id="customer-name" name="customerName" type="text" required />
             </label>
-            <label>
-              Φωτογραφία
-              <input id="photo-input" name="photo" type="file" accept="image/*" capture="environment" />
+            <div class="photo-field">
+              <span>Φωτογραφία</span>
+              <input id="camera-photo-input" name="cameraPhoto" type="file" accept="image/*" capture="environment" hidden />
+              <input id="gallery-photo-input" name="galleryPhoto" type="file" accept="image/*" hidden />
+              <div class="form-actions">
+                <button id="take-photo-btn" type="button">Λήψη φωτό</button>
+                <button id="choose-photo-btn" type="button" class="secondary-btn">Επιλογή αρχείου</button>
+              </div>
               <div id="photo-preview-wrap" class="photo-preview-wrap hidden">
                 <img id="photo-preview" alt="Προεπισκόπηση φωτογραφίας" />
                 <div id="photo-name" class="photo-name"></div>
               </div>
-            </label>
+            </div>
             <label>
               Σχόλιο / αρ. τιμολογίου
               <input id="entry-comment" name="comment" type="text" />
@@ -321,7 +332,10 @@
       const entryFormSection = document.getElementById('entry-form-section');
       const entryForm = document.getElementById('entry-form');
       const customerNameInput = document.getElementById('customer-name');
-      const photoInput = document.getElementById('photo-input');
+      const cameraPhotoInput = document.getElementById('camera-photo-input');
+      const galleryPhotoInput = document.getElementById('gallery-photo-input');
+      const takePhotoBtn = document.getElementById('take-photo-btn');
+      const choosePhotoBtn = document.getElementById('choose-photo-btn');
       const photoPreviewWrap = document.getElementById('photo-preview-wrap');
       const photoPreview = document.getElementById('photo-preview');
       const photoNameEl = document.getElementById('photo-name');
@@ -558,12 +572,19 @@
         }
         photoPreviewUrl = null;
         selectedPhotoFile = null;
+        cameraPhotoInput.value = '';
+        galleryPhotoInput.value = '';
         photoPreviewWrap.classList.add('hidden');
         photoPreview.removeAttribute('src');
         photoNameEl.textContent = '';
       }
 
       function renderPhotoPreview() {
+        if (!formDraft.photoDataUrl && formDraft.photoBase64) {
+          const mimeType = formDraft.photoMimeType || 'image/jpeg';
+          formDraft.photoDataUrl = `data:${mimeType};base64,${formDraft.photoBase64}`;
+        }
+
         if (!formDraft.photoDataUrl) {
           resetPhotoPreview();
           return;
@@ -893,7 +914,7 @@
 
         const customerName = customerNameInput.value.trim();
         const comment = entryCommentInput.value.trim();
-        const photoFile = selectedPhotoFile || photoInput.files[0];
+        const photoFile = selectedPhotoFile || cameraPhotoInput.files[0] || galleryPhotoInput.files[0];
 
         if (!customerName || (!formDraft.photoBase64 && !photoFile)) {
           entryMessageEl.textContent = 'Συμπληρώστε την επωνυμία πελάτη και επιλέξτε φωτογραφία.';
@@ -993,21 +1014,21 @@
         restoreEntryFormState();
       });
 
-      photoInput.addEventListener('change', async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
+      async function handlePhotoSelection(event) {
         const file = event.target.files && event.target.files[0];
         if (!file) {
-          selectedPhotoFile = null;
-          formDraft.photoName = '';
-          formDraft.photoMimeType = '';
-          formDraft.photoBase64 = '';
-          formDraft.photoDataUrl = '';
-          saveEntryDraftToStorage();
-          renderPhotoPreview();
           return;
         }
+
         selectedPhotoFile = file;
+        if (photoPreviewUrl) {
+          URL.revokeObjectURL(photoPreviewUrl);
+        }
+        photoPreviewUrl = URL.createObjectURL(file);
+        photoPreview.src = photoPreviewUrl;
+        photoPreviewWrap.classList.remove('hidden');
+        photoNameEl.textContent = file.name || 'Φωτογραφία';
+
         const photoBase64 = await readFileAsBase64(file);
         formDraft.photoName = file.name;
         formDraft.photoMimeType = file.type || 'image/jpeg';
@@ -1017,7 +1038,12 @@
         renderPhotoPreview();
         entryMessageEl.textContent = 'Φωτογραφία επιλεγμένη.';
         entryMessageEl.className = 'message success';
-      });
+      }
+
+      takePhotoBtn.addEventListener('click', () => cameraPhotoInput.click());
+      choosePhotoBtn.addEventListener('click', () => galleryPhotoInput.click());
+      cameraPhotoInput.addEventListener('change', handlePhotoSelection);
+      galleryPhotoInput.addEventListener('change', handlePhotoSelection);
 
       saveEntryBtn.addEventListener('click', (event) => {
         event.preventDefault();
