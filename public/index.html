@@ -218,8 +218,28 @@
       }
 
       .entry-card {
+        position: relative;
         min-width: 0;
         overflow-wrap: anywhere;
+      }
+
+      .entry-export-checkbox {
+        position: absolute;
+        top: 1.25rem;
+        right: 1.25rem;
+        z-index: 1;
+        width: 1.5rem;
+        height: 1.5rem;
+        margin: 0;
+        padding: 0;
+        accent-color: #15803d;
+        cursor: pointer;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+      }
+
+      .selection-count {
+        color: #374151;
+        font-weight: 600;
       }
 
       img {
@@ -807,7 +827,7 @@
         }
       }
 
-      async function exportCampaignPackage(campaign) {
+      async function exportCampaignPackage(campaign, selectedEntryIds) {
         if (!currentUserId) {
           throw new Error('Πρέπει να συνδεθείτε για να κάνετε εξαγωγή πακέτου.');
         }
@@ -816,7 +836,7 @@
         const response = await fetch('/api/export-campaign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: currentUserId, campaign_id: campaign.id })
+          body: JSON.stringify({ userId: currentUserId, campaign_id: campaign.id, selectedEntryIds })
         });
 
         console.log('[export] response received', {
@@ -1073,7 +1093,11 @@
           try {
             exportButton.disabled = true;
             exportButton.textContent = 'Γίνεται εξαγωγή...';
-            await exportCampaignPackage(campaign);
+            const selectedEntryIds = Array.from(
+              grid.querySelectorAll('.entry-export-checkbox:checked'),
+              (checkbox) => checkbox.dataset.entryId
+            );
+            await exportCampaignPackage(campaign, selectedEntryIds);
           } catch (error) {
             setMessage(error.message || 'Δεν ήταν δυνατή η εξαγωγή του πακέτου.', 'error');
           } finally {
@@ -1082,7 +1106,9 @@
           }
         });
 
-        actions.append(backButton, exportButton);
+        const selectedCount = document.createElement('span');
+        selectedCount.className = 'selection-count';
+        actions.append(backButton, selectedCount, exportButton);
 
         const title = document.createElement('h2');
         title.textContent = campaign.name;
@@ -1100,6 +1126,7 @@
             const card = document.createElement('article');
             card.className = 'entry-card';
             card.innerHTML = `
+              <input class="entry-export-checkbox" type="checkbox" data-entry-id="${entry.id}" aria-label="Συμπερίληψη εγγραφής στην εξαγωγή" checked />
               ${entry.photo_url ? `<img class="entry-photo" src="${entry.photo_url}" alt="Φωτογραφία πελάτη" role="button" tabindex="0" aria-label="Μεγέθυνση φωτογραφίας" />` : '<div class="empty-state">Δεν υπάρχει φωτογραφία</div>'}
               <div class="entry-meta">
                 <div><strong>Επωνυμία πελάτη:</strong> ${entry.customer_name || '—'}</div>
@@ -1111,6 +1138,18 @@
             grid.appendChild(card);
           });
         }
+
+        const updateSelectionCount = () => {
+          const totalCount = grid.querySelectorAll('.entry-export-checkbox').length;
+          const checkedCount = grid.querySelectorAll('.entry-export-checkbox:checked').length;
+          selectedCount.textContent = `Επιλεγμένες: ${checkedCount} από ${totalCount}`;
+        };
+        grid.addEventListener('change', (event) => {
+          if (event.target.matches('.entry-export-checkbox')) {
+            updateSelectionCount();
+          }
+        });
+        updateSelectionCount();
 
         supervisorSection.append(actions, title, grid);
       }

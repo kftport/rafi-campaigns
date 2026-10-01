@@ -220,11 +220,23 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    const selectedEntryIdSet = Array.isArray(body.selectedEntryIds)
+      ? new Set(body.selectedEntryIds.map(String))
+      : null;
+    const entriesToExport = selectedEntryIdSet
+      ? (entriesData || []).filter((entry) => selectedEntryIdSet.has(String(entry.id)))
+      : entriesData || [];
+    console.log('[export] entries selected for export', {
+      totalCount: entriesData ? entriesData.length : 0,
+      selectedCount: entriesToExport.length,
+      selectionProvided: selectedEntryIdSet !== null
+    });
+
     const zip = new JSZip();
     const usedPhotoNames = new Set();
     const rows = [];
 
-    for (const entry of entriesData || []) {
+    for (const entry of entriesToExport) {
       console.log('[export] processing entry', {
         entryId: entry.id,
         customerName: entry.customer_name,
