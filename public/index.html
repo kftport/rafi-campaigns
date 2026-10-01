@@ -375,6 +375,55 @@
         font-size: 0.9rem;
         color: #4b5563;
       }
+
+      .entry-photo {
+        cursor: zoom-in;
+      }
+
+      .photo-lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: grid;
+        place-items: center;
+        padding: 5vh 5vw;
+        background: rgba(0, 0, 0, 0.9);
+      }
+
+      .photo-lightbox.hidden {
+        display: none;
+      }
+
+      .photo-lightbox img {
+        width: auto;
+        height: auto;
+        max-width: 90vw;
+        max-height: 90vh;
+        object-fit: contain;
+        border-radius: 4px;
+      }
+
+      .photo-lightbox-close {
+        position: absolute;
+        top: max(1rem, env(safe-area-inset-top));
+        right: max(1rem, env(safe-area-inset-right));
+        display: grid;
+        width: 48px;
+        height: 48px;
+        place-items: center;
+        padding: 0;
+        background: white;
+        color: #111827;
+        font-size: 2rem;
+        line-height: 1;
+      }
+
+      @media (max-width: 600px) {
+        .photo-lightbox img {
+          max-width: 96vw;
+          max-height: 88vh;
+        }
+      }
     </style>
   </head>
   <body>
@@ -439,6 +488,11 @@
       </section>
     </main>
 
+    <div id="photo-lightbox" class="photo-lightbox hidden" role="dialog" aria-modal="true" aria-label="Μεγέθυνση φωτογραφίας" aria-hidden="true">
+      <button id="photo-lightbox-close" class="photo-lightbox-close" type="button" aria-label="Κλείσιμο">×</button>
+      <img id="photo-lightbox-image" alt="" />
+    </div>
+
     <script src="/supabase.js"></script>
     <script>
       let supabaseClient;
@@ -474,6 +528,59 @@
       const cancelEntryBtn = document.getElementById('cancel-entry-btn');
       const entryMessageEl = document.getElementById('entry-message');
       const logoutBtn = document.getElementById('logout-btn');
+      const photoLightbox = document.getElementById('photo-lightbox');
+      const photoLightboxImage = document.getElementById('photo-lightbox-image');
+      const photoLightboxClose = document.getElementById('photo-lightbox-close');
+      let photoLightboxTrigger = null;
+
+      function openPhotoLightbox(thumbnail) {
+        photoLightboxTrigger = thumbnail;
+        photoLightboxImage.src = thumbnail.getAttribute('src');
+        photoLightboxImage.alt = thumbnail.alt;
+        photoLightbox.classList.remove('hidden');
+        photoLightbox.setAttribute('aria-hidden', 'false');
+        photoLightboxClose.focus();
+      }
+
+      function closePhotoLightbox() {
+        if (photoLightbox.classList.contains('hidden')) {
+          return;
+        }
+
+        photoLightbox.classList.add('hidden');
+        photoLightbox.setAttribute('aria-hidden', 'true');
+        photoLightboxImage.removeAttribute('src');
+        if (photoLightboxTrigger?.isConnected) {
+          photoLightboxTrigger.focus();
+        }
+        photoLightboxTrigger = null;
+      }
+
+      supervisorSection.addEventListener('click', (event) => {
+        const thumbnail = event.target.closest('.entry-photo');
+        if (thumbnail) {
+          openPhotoLightbox(thumbnail);
+        }
+      });
+
+      supervisorSection.addEventListener('keydown', (event) => {
+        if (event.target.matches('.entry-photo') && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          openPhotoLightbox(event.target);
+        }
+      });
+
+      photoLightbox.addEventListener('click', (event) => {
+        if (event.target === photoLightbox) {
+          closePhotoLightbox();
+        }
+      });
+      photoLightboxClose.addEventListener('click', closePhotoLightbox);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          closePhotoLightbox();
+        }
+      });
 
       function setMessage(text, type = '') {
         messageEl.textContent = text;
@@ -993,7 +1100,7 @@
             const card = document.createElement('article');
             card.className = 'entry-card';
             card.innerHTML = `
-              ${entry.photo_url ? `<img src="${entry.photo_url}" alt="Φωτογραφία πελάτη" />` : '<div class="empty-state">Δεν υπάρχει φωτογραφία</div>'}
+              ${entry.photo_url ? `<img class="entry-photo" src="${entry.photo_url}" alt="Φωτογραφία πελάτη" role="button" tabindex="0" aria-label="Μεγέθυνση φωτογραφίας" />` : '<div class="empty-state">Δεν υπάρχει φωτογραφία</div>'}
               <div class="entry-meta">
                 <div><strong>Επωνυμία πελάτη:</strong> ${entry.customer_name || '—'}</div>
                 <div><strong>Πωλητής:</strong> ${entry.seller_name || '—'}</div>
