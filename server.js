@@ -8,6 +8,7 @@ const profileHandler = require('./api/profile');
 const myCampaignsHandler = require('./api/my-campaigns');
 const myEntriesHandler = require('./api/my-entries');
 const saveEntryHandler = require('./api/save-entry');
+const updateEntryHandler = require('./api/update-entry');
 const supervisorCampaignsHandler = require('./api/supervisor-campaigns');
 const campaignEntriesHandler = require('./api/campaign-entries');
 const exportCampaignHandler = require('./api/export-campaign');
@@ -36,6 +37,9 @@ app.post('/api/my-entries', myEntriesHandler);
 
 app.options('/api/save-entry', saveEntryHandler);
 app.post('/api/save-entry', saveEntryHandler);
+
+app.options('/api/update-entry', updateEntryHandler);
+app.post('/api/update-entry', updateEntryHandler);
 
 app.options('/api/supervisor-campaigns', supervisorCampaignsHandler);
 app.post('/api/supervisor-campaigns', supervisorCampaignsHandler);

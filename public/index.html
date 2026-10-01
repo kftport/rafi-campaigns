@@ -189,6 +189,12 @@
         font-size: 0.9rem;
       }
 
+      .my-entry-edit-btn {
+        margin-top: 0.4rem;
+        padding: 0.45rem 0.7rem;
+        background: #2563eb;
+      }
+
       .my-entry-details p {
         margin: 0.2rem 0 0;
         font-size: 0.85rem;
@@ -475,7 +481,7 @@
         </section>
 
         <section id="entry-form-section" class="hidden">
-          <h2>Νέα εγγραφή</h2>
+          <h2 id="entry-form-title">Νέα εγγραφή</h2>
           <form id="entry-form" class="entry-form">
             <label>
               Επωνυμία πελάτη
@@ -520,6 +526,7 @@
       let currentCampaign = null;
       let selectedPhotoFile = null;
       let photoPreviewUrl = null;
+      let editingEntryId = null;
       let formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
       const entryDraftStorageKey = 'rafi-entry-form-draft';
       const loginScreen = document.getElementById('screen-login');
@@ -534,6 +541,7 @@
       const campaignsSection = document.getElementById('campaigns-section');
       const supervisorSection = document.getElementById('supervisor-section');
       const entryFormSection = document.getElementById('entry-form-section');
+      const entryFormTitle = document.getElementById('entry-form-title');
       const entryForm = document.getElementById('entry-form');
       const customerNameInput = document.getElementById('customer-name');
       const cameraPhotoInput = document.getElementById('camera-photo-input');
@@ -622,6 +630,8 @@
         supervisorSection.classList.add('hidden');
         welcomeMessage.textContent = 'Καλώς ήρθες.';
         currentCampaign = null;
+        editingEntryId = null;
+        setEntryFormMode(false);
         currentUserId = null;
         currentSupervisorCampaigns = [];
         formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
@@ -815,6 +825,13 @@
               details.appendChild(comment);
             }
 
+            const editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'my-entry-edit-btn';
+            editButton.textContent = 'Επεξεργασία';
+            editButton.addEventListener('click', () => openEntryEditForm(campaign, entry));
+            details.appendChild(editButton);
+
             item.appendChild(details);
             listElement.appendChild(item);
           });
@@ -883,6 +900,8 @@
         const draft = {
           isActive: Boolean(currentCampaign),
           campaignId: currentCampaign?.id || null,
+          entryId: editingEntryId,
+          existingPhotoUrl: formDraft.existingPhotoUrl || '',
           customerName: customerNameInput.value,
           comment: entryCommentInput.value,
           photoName: formDraft.photoName || '',
@@ -950,6 +969,11 @@
         entryCommentInput.value = formDraft.comment || '';
       }
 
+      function setEntryFormMode(isEditing) {
+        entryFormTitle.textContent = isEditing ? 'Επεξεργασία εγγραφής' : 'Νέα εγγραφή';
+        saveEntryBtn.textContent = isEditing ? 'Αποθήκευση αλλαγών' : 'Αποθήκευση εγγραφής';
+      }
+
       function restoreEntryFormState() {
         const draft = readEntryDraftFromStorage();
         if (!draft || !draft.isActive || !draft.campaignId) {
@@ -962,8 +986,14 @@
           return false;
         }
 
+        if (!entryFormSection.classList.contains('hidden') && currentCampaign) {
+          return true;
+        }
+
         currentCampaign = matchingCampaign;
+        editingEntryId = draft.entryId || null;
         formDraft = { ...draft };
+        setEntryFormMode(Boolean(editingEntryId));
         entryFormSection.classList.remove('hidden');
         dashboard.classList.add('hidden');
         entryMessageEl.textContent = '';
@@ -971,6 +1001,11 @@
         restoreFormDraft();
         if (formDraft.photoDataUrl) {
           renderPhotoPreview();
+        } else if (formDraft.existingPhotoUrl) {
+          resetPhotoPreview();
+          photoPreview.src = formDraft.existingPhotoUrl;
+          photoPreviewWrap.classList.remove('hidden');
+          photoNameEl.textContent = 'Τρέχουσα φωτογραφία';
         } else {
           resetPhotoPreview();
         }
@@ -979,6 +1014,8 @@
 
       function openEntryForm(campaign) {
         currentCampaign = campaign;
+        editingEntryId = null;
+        setEntryFormMode(false);
         entryFormSection.classList.remove('hidden');
         dashboard.classList.add('hidden');
         entryMessageEl.textContent = '';
@@ -990,12 +1027,43 @@
           photoMimeType: '',
           photoBase64: '',
           photoDataUrl: '',
+          existingPhotoUrl: '',
           campaignId: campaign.id,
           isActive: true
         };
         customerNameInput.value = '';
         entryCommentInput.value = '';
         resetPhotoPreview();
+        saveEntryDraftToStorage();
+      }
+
+      function openEntryEditForm(campaign, entry) {
+        currentCampaign = campaign;
+        editingEntryId = entry.id;
+        setEntryFormMode(true);
+        entryFormSection.classList.remove('hidden');
+        dashboard.classList.add('hidden');
+        entryMessageEl.textContent = '';
+        entryMessageEl.className = 'message';
+        formDraft = {
+          customerName: entry.customer_name || '',
+          comment: entry.comment || '',
+          photoName: '',
+          photoMimeType: '',
+          photoBase64: '',
+          photoDataUrl: '',
+          existingPhotoUrl: entry.photo_url || '',
+          campaignId: campaign.id,
+          isActive: true
+        };
+        customerNameInput.value = formDraft.customerName;
+        entryCommentInput.value = formDraft.comment;
+        resetPhotoPreview();
+        if (formDraft.existingPhotoUrl) {
+          photoPreview.src = formDraft.existingPhotoUrl;
+          photoPreviewWrap.classList.remove('hidden');
+          photoNameEl.textContent = 'Τρέχουσα φωτογραφία';
+        }
         saveEntryDraftToStorage();
       }
 
@@ -1290,13 +1358,61 @@
         const comment = entryCommentInput.value.trim();
         const photoFile = selectedPhotoFile || cameraPhotoInput.files[0] || galleryPhotoInput.files[0];
 
-        if (!customerName || (!formDraft.photoBase64 && !photoFile)) {
+        if (!customerName || (!editingEntryId && !formDraft.photoBase64 && !photoFile)) {
           entryMessageEl.textContent = 'Συμπληρώστε την επωνυμία πελάτη και επιλέξτε φωτογραφία.';
           entryMessageEl.className = 'message error';
           return;
         }
 
         try {
+          if (editingEntryId) {
+            let photoBase64 = formDraft.photoBase64;
+            if (!photoBase64 && photoFile) {
+              photoBase64 = await readFileAsBase64(photoFile);
+            }
+
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session?.access_token) {
+              throw new Error('Η σύνδεσή σου έληξε. Συνδέσου ξανά.');
+            }
+
+            const updatePayload = {
+              entry_id: editingEntryId,
+              userId: session.user.id,
+              authToken: session.access_token,
+              customer_name: customerName,
+              comment
+            };
+            if (photoBase64) {
+              updatePayload.photoBase64 = photoBase64;
+              updatePayload.photoFileName = formDraft.photoName || (photoFile && photoFile.name) || 'photo.jpg';
+              updatePayload.photoMimeType = formDraft.photoMimeType || (photoFile && photoFile.type) || 'image/jpeg';
+            }
+
+            const updateResponse = await fetch('/api/update-entry', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatePayload)
+            });
+            const updateData = await updateResponse.json();
+            if (!updateResponse.ok) {
+              throw new Error(updateData.error || 'Αποτυχία ενημέρωσης εγγραφής.');
+            }
+
+            const savedCampaign = currentCampaign;
+            entryMessageEl.textContent = updateData.message || 'Οι αλλαγές αποθηκεύτηκαν.';
+            entryMessageEl.className = 'message success';
+            await loadMyEntries(savedCampaign, myEntriesContainers.get(String(savedCampaign.id)));
+            clearEntryDraftFromStorage();
+            formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
+            resetPhotoPreview();
+            currentCampaign = null;
+            editingEntryId = null;
+            setEntryFormMode(false);
+            showDashboard('seller');
+            return;
+          }
+
           let photoBase64 = formDraft.photoBase64;
           let photoMimeType = formDraft.photoMimeType || (photoFile && photoFile.type) || 'image/jpeg';
           let photoName = formDraft.photoName || (photoFile && photoFile.name) || 'photo.jpg';
@@ -1339,6 +1455,8 @@
           formDraft = { customerName: '', comment: '', photoName: '', photoMimeType: '', photoBase64: '', photoDataUrl: '', campaignId: null, isActive: false };
           resetPhotoPreview();
           currentCampaign = null;
+          editingEntryId = null;
+          setEntryFormMode(false);
           setTimeout(() => {
             entryFormSection.classList.add('hidden');
             showDashboard('seller');
@@ -1363,6 +1481,8 @@
       cancelEntryBtn.addEventListener('click', () => {
         entryFormSection.classList.add('hidden');
         dashboard.classList.remove('hidden');
+        editingEntryId = null;
+        setEntryFormMode(false);
         customerNameInput.value = '';
         entryCommentInput.value = '';
         clearEntryDraftFromStorage();
